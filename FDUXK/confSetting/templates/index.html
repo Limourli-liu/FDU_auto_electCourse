@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
+<html lang="zh-cmn" class="container-fluid" style="height:100%;">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>ModManager confing editor</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- 引入字体 -->
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome/css/font-awesome.min.css">
+        <!-- CSS only -->
+        <link href="//cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+        <!-- 引入Vue.js -->
+        <script src="//cdn.jsdelivr.net/npm/vue"></script>
+        <script src="//cdn.staticfile.org/vue-resource/1.5.1/vue-resource.min.js"></script>
+        <!-- 引入样式 -->
+        <link rel="stylesheet" href="//unpkg.com/mint-ui/lib/style.min.css">
+        <!-- 引入组件库 -->
+        <script src="//unpkg.com/mint-ui/lib/index.js"></script>
+    </head>
+    <body class="chinese-font container-fluid" style="height:100%;padding:0.5%;">
+        <div id="mod" class="container-fluid row" style="height:99%;">
+            <div class="col-3 text-center list-group" style="height: 99%;">
+                <a href="#!" class="list-group-item"
+                v-for="modName in modlist"
+                @click="selected(modName)"
+                :class="{active: activeName == modName}">{{modName}}</a>
+            </div>
+            <div class="col-9" style="height: 99%;padding:1%;">
+                <textarea type="text" name="value" class="container-fluid" style="resize:none; height: 95%;" v-model="text" disabled></textarea>
+                <div class="button-group pull-right">
+                    <button @click="reset" type="button" class="btn btn-danger" :disabled="disabled">重置</button>
+                    <button @click="edit" type="button" class="btn btn-primary" :disabled="disabled">修改</button>    
+                </div>
+           </div>
+        </div>
+<script async defer>
+var mod = new Vue({
+    el: '#mod',
+    data: {
+        modlist: [],
+        text: "hello world",
+        disabled: true,
+        activeName: ''
+    },
+    methods: {
+        edit: function(){
+            let url = '/mod/editor/?api='+"/mod/confSetting/ModConf/"+this.activeName+"&ti=Editor - "+this.activeName 
+            window.open(url,'_blank')
+        },
+        reset: function(){
+            MINT.MessageBox.confirm("确定要重置模块设置？","警告").then(action =>{
+                this.disabled = true
+                this.$http.delete("/mod/confSetting/ModConf/"+this.activeName).then(function(res){
+                    if(res.data.status){
+                        MINT.MessageBox("重置成功，请重启程序以使设置生效！")
+                        this.disabled = false
+                    }else{
+                        MINT.MessageBox("重置失败，请检查程序设置与文件权限！")
+                        this.disabled = false
+                    }
+                },function(){
+                    this.text = "failed to reset ModConf- " + this.activeName
+                }, )
+            })
+        },
+        selected: function(modName){
+            this.disabled = true
+            this.activeName = modName
+            this.$http.get("/mod/confSetting/ModConf/"+modName).then(function(res){
+                this.text = res.data.text
+                this.disabled = false
+            },function(){
+                this.text = "failed to get ModConf - " + modName
+            })
+        }
+    }
+});
+Vue.http.get("/mod/confSetting/getModList").then(function(res){
+    mod.modlist = res.data.modlist
+    mod.selected(res.data.activeName)
+}, function(){
+    mod.text = "failed to get modlist"
+});
+</script>
+    </body>
+</html>

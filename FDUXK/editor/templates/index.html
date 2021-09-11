@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
+<html lang="zh-cmn" class="container-fluid" style="height:100%;">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>[{title}]</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script type=text/javascript>$SCRIPT_API = "[{api}]";</script>
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome/css/font-awesome.min.css">
+<!-- CSS only -->
+        <link href="//cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+        <script src="//cdn.jsdelivr.net/npm/vue"></script>
+        <script src="//cdn.staticfile.org/vue-resource/1.5.1/vue-resource.min.js"></script>
+    </head>
+    <body class="chinese-font container-fluid" style="height:100%;padding:0.5%;">
+        <div id="text" class="container-fluid" style="height:100%;">
+            <textarea type="text" name="value" class="container-fluid" style="resize:none; height: 95%;" v-model="text" :disabled="disabled"></textarea>
+            <button @click="update" type="button" class="btn btn-primary pull-right" :disabled="disabled">保存</button>
+        </div>
+<script async defer>
+var text = new Vue({
+    el: '#text',
+    data: {
+        text: $SCRIPT_API,
+        disabled: false
+    },
+    methods: {
+        update: function(){
+            this.disabled = true
+            this.$http.post($SCRIPT_API, {text: this.text}).then(function(res){
+                this.disabled = false
+            }, function(){
+                this.text = "failed to set " + $SCRIPT_API
+            })
+        }
+    }
+});
+Vue.http.get($SCRIPT_API).then(function(res){
+    text.text = res.data.text
+}, function(){
+    text.text = "failed to get " + $SCRIPT_API
+});
+</script>
+    </body>
+</html>

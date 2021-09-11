@@ -1,0 +1,13 @@
+{
+    "modInformation": {
+        "Name": "BaseMod websever",
+        "Author": "Limour @limour.top",
+        "Version": "1.0",
+        "description": "A flask websever for all mods"
+    },
+    "priority": -9998,
+    "host": "0.0.0.0",
+    "port": 12021,
+    "threaded": false,
+    "processes": 2
+}

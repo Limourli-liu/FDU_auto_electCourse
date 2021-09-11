@@ -1,0 +1,10 @@
+{
+    "modInformation": {
+        "Name": "BaseMod database",
+        "Author": "Limour @limour.top",
+        "Version": "1.1",
+        "description": "A sqlite3 database for all mods"
+    },
+    "priority": 9999,
+    "db_path": "data/FDUXK/database.db"
+}
