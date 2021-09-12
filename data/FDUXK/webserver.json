@@ -9,5 +9,5 @@
     "host": "0.0.0.0",
     "port": 12021,
     "threaded": false,
-    "processes": 2
+    "processes": 1
 }

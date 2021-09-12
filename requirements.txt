@@ -1,3 +1,8 @@
 flask
 requests
 lxml
+numpy
+matplotlib
+torch
+torchvision
+tqdm

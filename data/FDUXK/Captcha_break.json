@@ -1,0 +1,12 @@
+{
+    "modInformation": {
+        "Name": "BaseMod editor",
+        "Author": "Limour @limour.top",
+        "Version": "1.0",
+        "description": "A simple web editor"
+    },
+    "model_path": "data/FDUXK/Captcha_break/cnn_LSTM_fc_CTC.pth",
+    "triandata_path": "data/FDUXK/Captcha_break/Captcha_train",
+    "use_cuda": true,
+    "priority": 9997
+}

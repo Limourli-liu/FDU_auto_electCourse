@@ -4,11 +4,11 @@ def _default_config(root, name): #返回默认配置文件 载入时被调用 ro
         'modInformation':{ #该模块的信息
             'Name': 'BaseMod crontab',
             'Author': 'Limour @limour.top',
-            'Version': '1.0',
+            'Version': '1.1',
             'description': 'A timer'
         },
         'priority':-9999, # 模块加载和调用的优先级，越大越先，默认为0
-        'interval_scale': 60.0 # 一个时间间隔 单位 s
+        'interval_scale': 1.0 # 一个时间间隔 单位 s
     }
 
 def _init(m_name, _config, _Manager, _log): #载入时被调用
