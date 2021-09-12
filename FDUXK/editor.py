@@ -10,7 +10,7 @@ def index():
     api = request.args.get('api', "/mod/editor/test/test/", type=str)
     title = request.args.get('ti', "Editor", type=str)
     # log.info(f"{api=}  {title=}")
-    return render_template('index.html', api=api, title=title)
+    return render_template('editor_index.html', api=api, title=title)
 
 @app.route("/test/<name>/", methods=['GET'])
 def test_GET(name):

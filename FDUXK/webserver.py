@@ -15,7 +15,7 @@ def _default_config(root, name): #返回默认配置文件 载入时被调用 ro
         'host': '0.0.0.0',
         'port': 12021,
         'threaded': False,
-        'processes': 2
+        'processes': 1
     }
 
 def _init(m_name, _config, _Manager, _log): #载入时被调用
@@ -39,17 +39,17 @@ app.jinja_env.variable_end_string = '}]'
 serverT.ctx = app.app_context()
 serverT.ctx.push()
 
-@app.before_request 
-def before_request(): # https://blog.csdn.net/qq_43224338/article/details/106699451
-    if request.blueprint is not None:
-        bp = app.blueprints[request.blueprint]
-        if bp.jinja_loader is not None:
-            newsearchpath = bp.jinja_loader.searchpath + app.jinja_loader.searchpath
-            app.jinja_loader.searchpath = newsearchpath
-        else:
-            app.jinja_loader.searchpath = app.jinja_loader.searchpath[-1:]
-    else:
-        app.jinja_loader.searchpath = app.jinja_loader.searchpath[-1:]
+# @app.before_request 
+# def before_request(): # https://blog.csdn.net/qq_43224338/article/details/106699451
+#     if request.blueprint is not None:
+#         bp = app.blueprints[request.blueprint]
+#         if bp.jinja_loader is not None:
+#             newsearchpath = bp.jinja_loader.searchpath + app.jinja_loader.searchpath
+#             app.jinja_loader.searchpath = newsearchpath
+#         else:
+#             app.jinja_loader.searchpath = app.jinja_loader.searchpath[-1:]
+#     else:
+#         app.jinja_loader.searchpath = app.jinja_loader.searchpath[-1:]
 
 def register_blueprint(bp):
     global server, app

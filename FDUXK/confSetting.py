@@ -8,7 +8,7 @@ app = Blueprint('confSetting', __name__, url_prefix='/mod/confSetting',
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('confSetting_index.html')
 
 @app.route('/getModList')
 def getModList():

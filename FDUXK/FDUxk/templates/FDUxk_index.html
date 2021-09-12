@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
+<html lang="zh-cmn" class="container-fluid" style="height:100%;">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>FDU_auto_electCourse</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- 引入字体 -->
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome/css/font-awesome.min.css">
+        <!-- CSS only -->
+        <link href="//cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+        <!-- 引入Vue.js -->
+        <script src="//cdn.jsdelivr.net/npm/vue"></script>
+        <script src="//cdn.staticfile.org/vue-resource/1.5.1/vue-resource.min.js"></script>
+        <!-- 引入样式 -->
+        <link rel="stylesheet" href="//unpkg.com/mint-ui/lib/style.min.css">
+        <!-- 引入组件库 -->
+        <script src="//unpkg.com/mint-ui/lib/index.js"></script>
+        <style>
+            tr.active {
+                background-color:#04AA6D
+            }
+        </style>
+    </head>
+    <body class="chinese-font container-fluid text-center" style="height:100%;padding:0.5%;">
+        <div ID="selected_course" class="container-fluid">
+            <h4 class="m-auto">已选课程</h4>
+            <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>No</th>
+                    <th>名称</th>
+                    <th>已选</th>
+                    <th>上限</th>
+                  </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="item in courselist">
+                        <td>{{item[0]}}</td>
+                        <td>{{item[1]}}</td>
+                        <td>{{item[2]}}</td>
+                        <td>{{item[3][0]}}</td>
+                        <td>{{item[3][1]}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div ID="s_course" class="container-fluid">
+            <h4 class="m-auto">待选课程</h4>
+            <table class="table table-responsive table-hover table-bordered">
+                <thead>
+                  <tr>
+                    <th>组别</th>
+                    <th>ID</th>
+                    <th>No</th>
+                    <th>名称</th>
+                    <th>已选</th>
+                    <th>上限</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody v-for="group in coursegroups">
+                    <tr v-for="item in group[1]" 
+                    @click="selected(item[1])"
+                    :class="{active: activeNo == item[1]}">
+                        <td>{{group[0]}}</td>
+                        <td>{{item[0]}}</td>
+                        <td>{{item[1]}}</td>
+                        <td>{{item[2]}}</td>
+                        <td>{{item[3]}}</td>
+                        <td>{{item[4]}}</td>
+                        <td>{{item[5]}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div ID="operate" class="row">
+            <div class="button-group pull-right">
+                <button @click="add" type="button" class="btn btn-primary" :disabled="disabled">添加</button>
+                <button @click="del" type="button" class="btn btn-warning" :disabled="disabled">删除</button>    
+            </div>
+        </div>
+        <div ID="infoBox" class="row my-3">
+            <h5 class="m-auto">控制台输出</h5>
+            <textarea type="text" name="value" class="container-fluid" style="resize:none;" v-model="info" disabled></textarea>
+        </div>
+<script async defer>
+function submitCookie(cookie){
+    Vue.http.post("/mod/FDUxk/xk_cookie/", cookie).then(function(res){
+                if (res.data == "success"){
+                    setCookieSuccess = true
+                }else{
+                    alert(res.data)
+                }
+            }, function(){
+                alert("failed to set cookie")
+    })
+}
+function checkStatus(){
+
+}
+
+let setCookieSuccess = false
+Vue.http.get("/mod/FDUxk/xk_cookie/").then(function(res){
+            lastCookie = res.data
+            MINT.MessageBox.prompt(lastCookie, "请输入cookie, 默认为上次cookie").then(
+                ({ value })=>{
+                    if(!value){
+                        value = lastCookie
+                    }
+                    alert(value)
+                    submitCookie(value)
+                }
+            )
+        },function(){
+            alert("设置cookie失败，请重试！")
+        })
+
+var selected_course = new Vue({
+    el: '#selected_course',
+    data: {
+        courselist: [["ID", "No", "名称", ["已选", "上限"]]]
+    }
+});
+var s_course = new Vue({
+    el: '#s_course',
+    data: {
+        coursegroups: [["七模",[["667607", "PHIL119056.01", "哲学视野中的人工智能", "80", "80", "Sat Jul 25 07:33:28 2020 已达上限, 等待退课或余量释放"]]],
+        ["英语",[["666621", "ENGL110060.01", "国际学术交流", "30", "30", "Sat Jul 25 07:33:09 2020 已达上限, 等待退课或余量释放"]]]],
+        activeNo: "PHIL119056.01"
+    },
+    methods:{
+        selected: function(sNo){
+            this.activeNo = sNo
+        }
+    }
+});
+
+var infoBox = new Vue({
+    el: '#infoBox',
+    data: {
+        info: ""
+    }
+});
+
+window.timer = setInterval(function(){
+  setTimeout(function(){
+    Vue.http.get("/mod/FDUxk/info/").then(function(res){
+                infoBox.info = res.data
+            },function(){
+                infoBox.info = res.data = "failed to get /mod/FDUxk/info/"
+            })
+    if (setCookieSuccess){checkStatus()}
+  }, 0)
+}, 3000)
+
+</script>
+    </body>
+</html>
