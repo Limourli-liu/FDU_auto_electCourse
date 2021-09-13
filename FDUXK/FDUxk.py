@@ -1,4 +1,6 @@
 import json, time, random, sys, traceback, requests, re
+from typing import Text
+from requests.api import head
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 from lxml import etree
@@ -52,7 +54,20 @@ def addC():
 @app.route('/info_p2/', methods=['GET'])
 def getP2():
     return jsonify(getJson('xk_p2', '[]'))
-
+@app.route('/no_captcha/', methods=['GET'])
+def no_captcha():
+    setVar('xk_no_captcha', "T")
+    return f"no_captcha {getVar('xk_no_captcha')}"
+@app.route('/enforce/', methods=['GET'])
+def enforce(): 
+    id = request.args.get('id', 0, type=int)
+    if id == 0: return "请选择有效内容！"
+    g = request.args.get('g', "default", type=str)
+    with lock: # 验证码需要保持单线程
+        res = xk_electCourse(id)
+        if '选课成功' in res:
+            xk_delC(g, None)
+    return res
 
 def xk_addC(g, n):
     coursegroups = getJson('xk_coursegroups', '[]')
@@ -300,8 +315,97 @@ def _init(m_name, _config, _Manager, _log): #载入时被调用
     # 初始化参数
     xk_init()
 
+def xk_getCaptcha_():
+    url = xk_getUrl('xk/captcha/image.action?d=')+str(getTimestamp())
+    headers = {
+    "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+    "Referer": xk_getUrl("xk/stdElectCourse!defaultPage.action"),
+    "Sec-Fetch-Dest": "image",
+    "Sec-Fetch-Mode": "no-cors",
+    "Sec-Fetch-Site": "same-origin"
+    }
+    r = xk_try(xk_get, url, headers)
+    img = r.content
+    text = OCR(img)
+    xk_info(f"验证码： {text}")
+    return text
+def xk_getCaptcha():
+    if getVar('xk_no_captcha') != "T":
+        return xk_getCaptcha_()
+    setVar('xk_no_captcha', "F")
+    return ''
+
+def _Xk_m(key):
+    limit = config["一轮最大选课尝试次数"]
+    i = limit
+    counter = 1
+    while i >0 or limit == 0:
+        st = key()
+        if '选课成功' in st:
+            xk_info(f'Xk2S 第{counter}次选课成功!')
+            break
+        else:
+            xk_info(f'Xk2S 第{counter}次选课失败:')
+            xk_info(jsp.sub('', st))
+            if '选课失败:公选人数已满' in st: 
+                if limit: break
+            elif '选课失败:你已经选过' in st:
+                return '选课成功!因为你已选过'
+                break
+            elif '课程不能超过最大选课1门数限制' in st:
+                if limit: break
+            elif '操作失败:验证码错误' in st:
+                pass
+            elif '选课失败:与以下课程冲突' in st:
+                if limit: break
+            else:
+                i -= 1
+        counter += 1
+        sleep(10)
+    else:
+        return '本轮选课失败!'
+    return f'{time.ctime(time.time())} 本次尝试结束, 未成功选课'
+
+def xk_electCourse(ID):
+    ct = False # 确保课程可以选
+    s_ID = str(ID)
+    coursegroups = getJson('xk_coursegroups', '[]')
+    for group in coursegroups:
+        for item in group[1]:
+            if item[0] == s_ID:
+                ct = True
+                break
+        if ct: break
+    if not ct:
+        return "该课程不在待选列表中， 可能已经成功选课！"
+    headers = {
+    "Accept": "text/html, */*; q=0.01",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "Origin": config['选课URL'],
+    "Referer": xk_getUrl("xk/stdElectCourse!defaultPage.action"),
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "X-Requested-With": "XMLHttpRequest"
+    }
+    data = {
+    "optype": "true",
+    "operator0": f"{ID}:true:0",
+    "captcha_response": ""
+    }
+    url = xk_getUrl("xk/stdElectCourse!batchOperator.action", True)
+    def _xk():
+        captcha = xk_getCaptcha()
+        data["captcha_response"] = captcha
+        r = xk_try(xk_post, url, headers, data)
+        return htag.sub(' ', space.sub('', r.text))
+    res = _Xk_m(_xk)
+    xk_info(f"xk_electCourse {res}")
+    return res
+
 def xk_XkTask(ID):
-    return "选课系统开发中"
+    with lock: # 验证码需要保持单线程
+        return xk_electCourse(ID)
 
 def _crontab():
     coursegroups = getJson('xk_coursegroups', '[]')

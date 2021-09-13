@@ -67,7 +67,7 @@
                 </thead>
                 <tbody v-for="group in coursegroups">
                     <tr v-for="item in group[1]" 
-                    @click="selected([group[0],item[1]])"
+                    @click="selected([group[0],item[1],item[0]])"
                     :class="{active: activeNo[1] == item[1] && activeNo[0] == group[0]}">
                         <td>{{group[0]}}</td>
                         <td>{{item[0]}}</td>
@@ -137,10 +137,21 @@ var control = new Vue({
             })
         },
         no_captcha: function(){
-
+            this.$http.get('/mod/FDUxk/no_captcha/').then(function(res){
+                alert(res.data)
+            },function(){
+                alert('failed to set /mod/FDUxk/no_captcha/')
+            })
         },
         enforce: function(){
-
+            if (!s_course.activeNo[2]){return 0}
+            let g = s_course.activeNo[0]
+            let id = s_course.activeNo[2]
+            this.$http.get('/mod/FDUxk/enforce/?g='+g+'&id='+id).then(function(res){
+                alert(res.data)
+            },function(){
+                alert('failed to start /mod/FDUxk/enforce/')
+            })
         }
     }
 })
@@ -174,8 +185,12 @@ function checkStatus(){
     },function(){
         alert('failed to get /mod/FDUxk/info_p2/')
     })
-    Vue.http.get("/mod/FDUxk/xk_C/").then(function(res){
+    Vue.http.get("/mod/FDUxk/xk_C/").then(function(res){ // 我不管了，今天就要写完
+        control.disabled = true
+        let activeNo = s_course.activeNo
         s_course.coursegroups = res.data
+        s_course.activeNo = activeNo
+        if(s_course.activeNo[2]){control.disabled = false}
     },function(){
         alert('failed to get /mod/FDUxk/xk_C/')
     })
