@@ -67,8 +67,8 @@
                 </thead>
                 <tbody v-for="group in coursegroups">
                     <tr v-for="item in group[1]" 
-                    @click="selected(item[1])"
-                    :class="{active: activeNo == item[1]}">
+                    @click="selected([group[0],item[1]])"
+                    :class="{active: activeNo[1] == item[1] && activeNo[0] == group[0]}">
                         <td>{{group[0]}}</td>
                         <td>{{item[0]}}</td>
                         <td>{{item[1]}}</td>
@@ -80,21 +80,87 @@
                 </tbody>
             </table>
         </div>
-        <div ID="operate" class="row">
+        <div ID="control" class="row">
             <div class="button-group pull-right">
-                <button @click="add" type="button" class="btn btn-primary" :disabled="disabled">添加</button>
-                <button @click="del" type="button" class="btn btn-warning" :disabled="disabled">删除</button>    
+                <button @click="add" type="button" class="btn btn-primary">添加</button>
+                <button @click="del" type="button" class="btn btn-warning" :disabled="disabled">删除</button>
+                <button @click="no_captcha" type="button" class="btn btn-primary">无验证码</button>
+                <button @click="enforce" type="button" class="btn btn-primary" :disabled="disabled">强制选课</button>
             </div>
         </div>
-        <div ID="infoBox" class="row my-3">
+        <div ID="infoBox" class="row my-3" style="height:50%;">
             <h5 class="m-auto">控制台输出</h5>
-            <textarea type="text" name="value" class="container-fluid" style="resize:none;" v-model="info" disabled></textarea>
+            <textarea type="text" name="value" class="container-fluid" style="resize:none;height:100%;" v-model="info" disabled></textarea>
         </div>
 <script async defer>
+function control_getUrl(g,n){
+    let url = "/mod/FDUxk/xk_C/?g="+g+"&n="+n
+    return url
+}
+
+var control = new Vue({
+    el: "#control",
+    data: {
+        disabled: true
+    },
+    methods: {
+        add: function(){
+            MINT.MessageBox.prompt('每个组别下的课程将仅有一门被选', "请输入组别").then(
+                ({ value })=>{
+                    if(!value){
+                        value = 'default'
+                    }
+                    let g = value
+                    MINT.MessageBox.prompt('类似 ENGL110060.01 的完整序号', "请输入课程序号").then(
+                        ({ value })=>{
+                            if(!value){
+                                value = 'ENGL110060.01'
+                            }
+                            let n = value
+                            this.$http.post(control_getUrl(g, n)).then(function(res){
+                                s_course.coursegroups = res.data
+                                control.disabled = true
+                            },function(){
+                                alert('failed to POST /mod/FDUxk/xk_C/')
+                            })
+                        }
+                    )
+                }
+            )
+        },
+        del: function(){
+            this.$http.delete(control_getUrl(s_course.activeNo[0], s_course.activeNo[1])).then(function(res){
+                s_course.coursegroups = res.data
+                control.disabled = true
+            },function(){
+                alert('failed to DELETE /mod/FDUxk/xk_C/')
+            })
+        },
+        no_captcha: function(){
+
+        },
+        enforce: function(){
+
+        }
+    }
+})
+
+var selected_course = new Vue({
+    el: '#selected_course',
+    data: {
+        courselist: []
+    }
+});
+
 function submitCookie(cookie){
     Vue.http.post("/mod/FDUxk/xk_cookie/", cookie).then(function(res){
                 if (res.data == "success"){
                     setCookieSuccess = true
+                    Vue.http.get('/mod/FDUxk/xk_getCourseTable/').then(function(res){
+                        selected_course.courselist = res.data
+                    },function(){
+                        alert('failed to get /mod/FDUxk/xk_getCourseTable/')
+                    })
                 }else{
                     alert(res.data)
                 }
@@ -103,7 +169,16 @@ function submitCookie(cookie){
     })
 }
 function checkStatus(){
-
+    Vue.http.get('/mod/FDUxk/info_p2/').then(function(res){
+        selected_course.courselist = res.data
+    },function(){
+        alert('failed to get /mod/FDUxk/info_p2/')
+    })
+    Vue.http.get("/mod/FDUxk/xk_C/").then(function(res){
+        s_course.coursegroups = res.data
+    },function(){
+        alert('failed to get /mod/FDUxk/xk_C/')
+    })
 }
 
 let setCookieSuccess = false
@@ -122,22 +197,16 @@ Vue.http.get("/mod/FDUxk/xk_cookie/").then(function(res){
             alert("设置cookie失败，请重试！")
         })
 
-var selected_course = new Vue({
-    el: '#selected_course',
-    data: {
-        courselist: [["ID", "No", "名称", ["已选", "上限"]]]
-    }
-});
 var s_course = new Vue({
     el: '#s_course',
     data: {
-        coursegroups: [["七模",[["667607", "PHIL119056.01", "哲学视野中的人工智能", "80", "80", "Sat Jul 25 07:33:28 2020 已达上限, 等待退课或余量释放"]]],
-        ["英语",[["666621", "ENGL110060.01", "国际学术交流", "30", "30", "Sat Jul 25 07:33:09 2020 已达上限, 等待退课或余量释放"]]]],
-        activeNo: "PHIL119056.01"
+        coursegroups: [],
+        activeNo: ["",""]
     },
     methods:{
         selected: function(sNo){
             this.activeNo = sNo
+            control.disabled = false
         }
     }
 });
@@ -153,12 +222,19 @@ window.timer = setInterval(function(){
   setTimeout(function(){
     Vue.http.get("/mod/FDUxk/info/").then(function(res){
                 infoBox.info = res.data
+                if(setCookieSuccess){checkStatus()}
             },function(){
                 infoBox.info = res.data = "failed to get /mod/FDUxk/info/"
             })
     if (setCookieSuccess){checkStatus()}
   }, 0)
 }, 3000)
+
+Vue.http.get("/mod/FDUxk/xk_C/").then(function(res){
+    s_course.coursegroups = res.data
+},function(){
+    alert('failed to get /mod/FDUxk/xk_C/')
+})
 
 </script>
     </body>

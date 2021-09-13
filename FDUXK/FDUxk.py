@@ -4,6 +4,11 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 from lxml import etree
 from flask import Blueprint, jsonify, render_template, request
 import json, os
+
+space = re.compile(r'\s+')
+htag = re.compile(r'<[^>]+>')
+jsp = re.compile(r'if\(window.electCourseTable\)\{.*\}\s+')
+
 app = Blueprint('FDUxk', __name__, url_prefix='/mod/FDUxk',
                 template_folder='FDUxk/templates',
                 static_folder='FDUxk/static',
@@ -15,7 +20,7 @@ def index():
     return render_template('FDUxk_index.html')
 @app.route('/info/')
 def getInfo():
-    return getVar('info', 'hello world')
+    return getVar('xk_info', 'hello world')
 
 @app.route('/xk_cookie/', methods=['GET'])
 def getCookie():
@@ -24,9 +29,70 @@ def getCookie():
 def setCookie():
     res = request.data
     setVar('cookie', res)
-    return "success"
+    return xk_getProfileId()
+@app.route('/xk_getCourseTable/', methods=['GET'])
+def getCourseTable():
+    res = xk_getCourseTable()
+    return jsonify(res)
+@app.route('/xk_C/', methods=['GET'])
+def getC():
+    return jsonify(getJson('xk_coursegroups', '[]'))
+@app.route('/xk_C/', methods=["DELETE"])
+def delC():
+    g = request.args.get('g', "default", type=str)
+    n = request.args.get('n', "", type=str)
+    xk_delC(g, n)
+    return jsonify(getJson('xk_coursegroups', '[]'))
+@app.route("/xk_C/", methods=['POST'])
+def addC():
+    g = request.args.get('g', "default", type=str)
+    n = request.args.get('n', "", type=str)
+    xk_addC(g, n)
+    return jsonify(getJson('xk_coursegroups', '[]'))
+@app.route('/info_p2/', methods=['GET'])
+def getP2():
+    return jsonify(getJson('xk_p2', '[]'))
 
 
+def xk_addC(g, n):
+    coursegroups = getJson('xk_coursegroups', '[]')
+    for group in coursegroups:
+        if group[0] == g:
+            for item in group[1]:
+                if item[1] == n:
+                    break
+            else:
+                group[1].append(['', n,'','','',''])
+            break
+    else:
+        coursegroups.append((g, [['', n,'','','','']]))
+    setJson('xk_coursegroups', coursegroups)
+def xk_delC(g, n):
+    coursegroups = getJson('xk_coursegroups', '[]')
+    for i,group in enumerate(coursegroups):
+        if group[0] == g:
+            if n is None:
+                coursegroups.pop(i)
+                break
+            for j,item in enumerate(group[1]):
+                if item[1] == n:
+                    if len(group[1]) == 1:
+                        coursegroups.pop(i)
+                    else:
+                        group[1].pop(j)
+                    break
+            break
+    setJson('xk_coursegroups', coursegroups)
+def xk_setC(g, n, newC):
+    coursegroups = getJson('xk_coursegroups', '[]')
+    for i,group in enumerate(coursegroups):
+        if group[0] == g:
+            for j,item in enumerate(group[1]):
+                if item[1] == n:
+                    coursegroups[i][1][j] = newC
+                    break
+            break
+    setJson('xk_coursegroups', coursegroups)
 
 def xk_init():
     global proxies, xk_s
@@ -35,6 +101,7 @@ def xk_init():
             "https": config['proxy']
     }
     xk_s = requests.Session()
+    setVar('xk_info', '初始化完成\n')
 
 def xk_headers(headers):
     headers['Cookie'] = getVar('cookie', '')
@@ -61,13 +128,134 @@ def xk_try(f, *arg, **kw):
             return f(*arg, **kw)
         except:
             xk_info(traceback.format_exc())
+    raise RuntimeError('已达最大尝试次数')
+
+def xk_getUrl(path, set_profileId=False):
+    if set_profileId:
+        return f"{config['选课URL']}{path}?profileId={getVar('xk_profileId')}"
+    else:
+        return f"{config['选课URL']}{path}"
+
+def xk_getNotice(items): # 曾经不熟练lxml时写的，不想改了，就放这里了
+    res = ''.join(items[0].xpath('./text()')) + '\n'
+    tl = items[1].xpath('./text()')
+    res += ('\n'.join(space.sub(' ',t) for t in tl)) + '\n'
+    tl = items[2].xpath('.//text()')
+    res += ('\n'.join(space.sub(' ',t) for t in tl))
+    return res
+
+def xk_getProfileId():
+    headers = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Referer": xk_getUrl("xk/login.action"),
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    }
+    r = xk_try(xk_get, xk_getUrl('xk/stdElectCourse.action'), headers)
+    html = etree.HTML(r.text)
+    Notice0 = html.xpath('//div[@id="electIndexNotice0"]')
+    if len(Notice0) != 1:
+        xk_info(f'{r.text}\nxk_getProfileId 找不到electIndexNotice0, 可能登录已失效')
+        return '找不到electIndexNotice0, 可能登录已失效'
+    Notice0 = Notice0[0]
+    items = Notice0.xpath('./*')
+    if len(items) != 4:
+        xk_info(f'{r.text}\nxk_getProfileId Notice0元素个数不为4, 可能选课尚未开放')
+        return 'Notice0元素个数不为4, 可能选课尚未开放'
+    xk_info(xk_getNotice(items))
+    tl = items[3].xpath('./form/input/@value')
+    if len(tl) !=1 or not tl[0].isnumeric():
+        xk_info(f'{r.text}\nxk_getProfileId 未找到profileId, 可能选课尚未开放')
+        return '未找到profileId, 可能选课尚未开放'
+    profileId = tl[0]
+    setVar('xk_profileId', profileId)
+    xk_info(f'xk_profileId is {profileId}')
+    return "success"
 
 def xk_info(text):
-    tmp = getVar('info', '')
+    tmp = getVar('xk_info', '')
     if tmp.count('\n') > config["控制台最大输出行数"]:
         tmp = '\n'.join(tmp.split('\n')[config["控制台最大输出行数"]>>1:])
     tmp += '\n' + text
-    setVar('info', tmp)
+    setVar('xk_info', tmp)
+
+def xk_getCourse(key):
+    j1 = j2 = {}
+    while not j1 or not j2:
+        a = b = c = -1
+        while b==-1 or c==-1:
+            r = key()
+            if isinstance(r, str): return r
+            a = r.text.find('[')
+            b = r.text.find(r';/*sc 当前人数, lc 人数上限*/')
+            c = r.text.find('{', b)
+            xk_info(f'getXkList {a} {b} {c}')
+            if  b==-1 or c==-1:
+                if '请不要过快点击' in r.text:
+                    xk_info('请求过快, 稍后自动重试...')
+                    sleep()
+                else:
+                    xk_info(f'未知错误,请尝试点击一次选课界面的>>>进入选课\n\n{r.text}')
+                    return  '未知错误,请尝试点击一次选课界面的>>>进入选课'
+        j1 = jsonfy(r.text[a:b])
+        j2 = jsonfy(r.text[c:])
+        if j1 == [] and j2 == {} : break
+    return [(one['id'], one['no'], one['name'], getScLc(j2[str(one['id'])])) for one in j1]
+
+def xk_getCourseTable():
+    headers = {
+    "Accept": "*/*",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Referer": xk_getUrl("xk/stdElectCourse!defaultPage.action"),
+    "Sec-Fetch-Dest": "script",
+    "Sec-Fetch-Mode": "no-cors",
+    "Sec-Fetch-Site": "same-origin"
+    }
+    url = xk_getUrl('xk/stdElectCourse!queryLesson.action', True)
+    def _getLesson():
+        return xk_try(xk_get, url, headers)
+    sCourse = xk_getCourse(_getLesson)
+    setJson('xk_p2', sCourse)
+    return sCourse
+
+def xk_inquireCoure(No):
+    Form = {
+    "lessonNo": No,
+    "courseCode": "",
+    "courseName": ""
+    }
+    headers = {
+    "Accept": "*/*",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Origin": config['选课URL'],
+    "Referer": xk_getUrl("xk/stdElectCourse!defaultPage.action"),
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin"
+    }
+    url = xk_getUrl('xk/stdElectCourse!queryLesson.action', True)
+    def _postLesson():
+        return xk_try(xk_post, url, headers, Form)
+    sCourse = xk_getCourse(_postLesson)
+    if isinstance(sCourse, str): return sCourse
+    part1 = []
+    part2 = []
+    for item in sCourse:
+        if item[1] != No:
+            part1.append(item)
+        else:
+            part2.append(item)
+    setJson('xk_p2', part1)
+    if len(part2) !=1: return f'No有误 {No}'
+    return part2[0]
 
 config, Manager, log, lock = 0,0,0,0 #保存宿主传递的环境 分别为配置文件， 模块管理器，日志，全局线程锁
 def _default_config(root, name): #返回默认配置文件 载入时被调用 root为数据文件根目录 name为当前模块名称
@@ -112,8 +300,37 @@ def _init(m_name, _config, _Manager, _log): #载入时被调用
     # 初始化参数
     xk_init()
 
+def xk_XkTask(ID):
+    return "选课系统开发中"
+
 def _crontab():
-    pass
+    coursegroups = getJson('xk_coursegroups', '[]')
+    for group in coursegroups:
+        for item in group[1]:
+            newC = xk_inquireCoure(item[1])
+            if isinstance(newC, str):
+                xk_info(newC)
+                sleep()
+                continue
+            item [0] = str(newC[0])
+            item [2] = newC[2]
+            item [3] = str(newC[3][0])
+            item [4] = str(newC[3][1])
+            if newC[3][0] >= newC[3][1]:
+                item [5] = f'{time.ctime(time.time())} 已达上限, 等待退课或余量释放'
+                xk_setC(group[0], item[1], item)
+                sleep()
+            else:
+                res = xk_XkTask(newC[0])
+                if len(res) > 40:
+                    xk_info(res)
+                else:
+                    item[5] = space.sub(' ', res).strip()
+                if '选课成功' in res:
+                    xk_delC(group[0], None)
+                else:
+                    xk_setC(group[0], item[1], item)
+        sleep()
 
 def getVar(name, dvalue=None):
     value = db.select_("value", f"globalVar='{name}'")
@@ -147,8 +364,4 @@ def getScLc(d):
 def getTimestamp(size = 1000):
     t = time.time()
     return int(round(t * size))
-
-space = re.compile(r'\s+')
-htag = re.compile(r'<[^>]+>')
-jsp = re.compile(r'if\(window.electCourseTable\)\{.*\}\s+')
 

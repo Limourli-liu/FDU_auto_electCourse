@@ -1,0 +1,18 @@
+{
+    "modInformation": {
+        "Name": "Core fucthion mod of this",
+        "Author": "Limour @limour.top",
+        "Version": "1.2",
+        "description": "Core fucthion mod of this project"
+    },
+    "proxy": "",
+    "proxy说明": "格式为 http://user:password@host:port",
+    "选课URL": "https://xk.fudan.edu.cn/",
+    "Host": "0",
+    "轮询间隔": 5,
+    "一轮最大选课尝试次数": 3,
+    "连接超时时间": 30,
+    "随机抖动缩放": 10,
+    "控制台最大输出行数": 300,
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Safari/537.36"
+}
