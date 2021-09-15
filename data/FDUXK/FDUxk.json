@@ -9,7 +9,7 @@
     "proxy说明": "格式为 http://user:password@host:port",
     "选课URL": "https://xk.fudan.edu.cn/",
     "Host": "0",
-    "轮询间隔": 5,
+    "轮询间隔": 2,
     "一轮最大选课尝试次数": 3,
     "连接超时时间": 30,
     "随机抖动缩放": 10,

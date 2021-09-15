@@ -63,11 +63,8 @@ def enforce():
     id = request.args.get('id', 0, type=int)
     if id == 0: return "请选择有效内容！"
     g = request.args.get('g', "default", type=str)
-    with lock: # 验证码需要保持单线程
-        res = xk_electCourse(id)
-        if '选课成功' in res:
-            xk_delC(g, None)
-    return res
+    Manager.submit(xk_XkTask, id, g) # 避免阻塞前端
+    return "已添加强制选课！"
 
 def xk_addC(g, n):
     coursegroups = getJson('xk_coursegroups', '[]')
@@ -190,6 +187,7 @@ def xk_getProfileId():
     profileId = tl[0]
     setVar('xk_profileId', profileId)
     xk_info(f'xk_profileId is {profileId}')
+    setVar('set_cookie', 'T')
     return "success"
 
 def xk_info(text):
@@ -315,6 +313,9 @@ def _init(m_name, _config, _Manager, _log): #载入时被调用
     # 初始化参数
     xk_init()
 
+def _exit():
+    setVar('set_cookie', 'F')
+
 def xk_getCaptcha_():
     url = xk_getUrl('xk/captcha/image.action?d=')+str(getTimestamp())
     headers = {
@@ -329,11 +330,13 @@ def xk_getCaptcha_():
     text = OCR(img)
     xk_info(f"验证码： {text}")
     return text
-def xk_getCaptcha():
-    if getVar('xk_no_captcha') != "T":
-        return xk_getCaptcha_()
-    setVar('xk_no_captcha', "F")
-    return ''
+def xk_getCaptcha(data):
+    if getVar('xk_no_captcha') == "T":
+        xk_info("无验证码模式")
+        setVar('xk_no_captcha', "F")
+    else:
+        data["captcha_response"] = xk_getCaptcha_()
+    return data
 
 def _Xk_m(key):
     limit = config["一轮最大选课尝试次数"]
@@ -355,7 +358,7 @@ def _Xk_m(key):
             elif '课程不能超过最大选课1门数限制' in st:
                 if limit: break
             elif '操作失败:验证码错误' in st:
-                pass
+                i -= 1
             elif '选课失败:与以下课程冲突' in st:
                 if limit: break
             else:
@@ -390,24 +393,26 @@ def xk_electCourse(ID):
     }
     data = {
     "optype": "true",
-    "operator0": f"{ID}:true:0",
-    "captcha_response": ""
+    "operator0": f"{ID}:true:0"
     }
     url = xk_getUrl("xk/stdElectCourse!batchOperator.action", True)
     def _xk():
-        captcha = xk_getCaptcha()
-        data["captcha_response"] = captcha
-        r = xk_try(xk_post, url, headers, data)
+        r = xk_try(xk_post, url, headers, xk_getCaptcha(data))
         return htag.sub(' ', space.sub('', r.text))
     res = _Xk_m(_xk)
     xk_info(f"xk_electCourse {res}")
     return res
 
-def xk_XkTask(ID):
+def xk_XkTask(ID, g):
     with lock: # 验证码需要保持单线程
-        return xk_electCourse(ID)
+        res = xk_electCourse(ID)
+        if '选课成功' in res:
+            xk_delC(g, None)
+        return res
 
 def _crontab():
+    if getVar('set_cookie') != 'T':
+        return
     coursegroups = getJson('xk_coursegroups', '[]')
     for group in coursegroups:
         for item in group[1]:
@@ -425,14 +430,12 @@ def _crontab():
                 xk_setC(group[0], item[1], item)
                 sleep()
             else:
-                res = xk_XkTask(newC[0])
+                res = xk_XkTask(newC[0], group[0])
                 if len(res) > 40:
                     xk_info(res)
                 else:
                     item[5] = space.sub(' ', res).strip()
-                if '选课成功' in res:
-                    xk_delC(group[0], None)
-                else:
+                if '选课成功' not in res:
                     xk_setC(group[0], item[1], item)
         sleep()
 
